@@ -63,3 +63,8 @@ there is room to number smaller shapes.
 ```bash
 python -m pytest
 ```
+
+## Etsy fulfillment
+
+The automated Etsy order pipeline (webhook, buyer upload page, PDF delivery)
+lives in `backend/` and `frontend/`. See [FULFILLMENT.md](FULFILLMENT.md).

@@ -1,0 +1,54 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+// The connection URL lives in prisma.config.ts (CLI) and src/db.ts (runtime).
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus {
+  AWAITING_UPLOAD
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  // Etsy receipt and shop ids can exceed 32 bits.
+  receiptId   BigInt      @unique @map("receipt_id")
+  shopId      BigInt      @map("shop_id")
+  buyerEmail  String      @map("buyer_email")
+  uploadToken String      @unique @map("upload_token")
+  status      OrderStatus @default(AWAITING_UPLOAD)
+  // Format keys the buyer picked (see src/lib/formats.ts).
+  formats     String[]    @default([])
+  progress    Int         @default(0)
+  progressMessage String? @map("progress_message")
+  // Files produced for the buyer: [{ file, label, format, size }].
+  outputs     Json?
+  error       String?
+  // Set once Etsy accepts the shipment/complete call; null means it still needs doing.
+  etsyShippedAt DateTime? @map("etsy_shipped_at")
+  etsyError     String?   @map("etsy_error")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("orders")
+}
+
+// Single row (id = 1) holding the shop owner's OAuth tokens. Etsy access tokens
+// last one hour and each refresh returns a new refresh token, so they are stored
+// here rather than in env vars.
+model EtsyToken {
+  id           Int      @id @default(1)
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("etsy_tokens")
+}
