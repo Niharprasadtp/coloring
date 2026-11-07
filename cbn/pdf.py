@@ -190,13 +190,10 @@ def _gallery(c, spec, pages):
             r, col = divmod(i, 2)
             x = spec.margin + col * cell_w
             y = top - (r + 1) * cell_h
-            avail_w, avail_h = cell_w - 12 * ui, cell_h - 20 * ui
+            avail_w, avail_h = cell_w - 12 * ui, cell_h - 12 * ui
             s = min(avail_w / page.width, avail_h / page.height)
             w, h = page.width * s, page.height * s
-            c.drawImage(_jpeg(page.reference, 1200), x + (cell_w - w) / 2, y + 16 * ui + (avail_h - h) / 2, w, h)
-            c.setFillGray(TEXT_GRAY)
-            c.setFont(FONT, 8 * ui)
-            c.drawCentredString(x + cell_w / 2, y + 4 * ui, page.name)
+            c.drawImage(_jpeg(page.reference, 1200), x + (cell_w - w) / 2, y + (cell_h - h) / 2, w, h)
         c.showPage()
 
 

@@ -26,6 +26,10 @@ MIN_REGIONS = 15
 # get a second clustering pass; details must print at least this big.
 RESIDUAL_DELTA = 15.0
 RESIDUAL_PER_IMAGE = 30_000
+MAX_RESIDUAL = 300_000
+# The PDFs never draw the color reference larger than this (gallery images),
+# so only a copy this size is kept per page. This keeps memory flat with ~50 images.
+REFERENCE_MAX_SIDE = 1200
 DETAIL_MIN_AREA_MM2 = 0.2
 DETAIL_MAX_AREA_MM2 = 4.5
 DETAIL_MIN_RADIUS_PT = 0.5
@@ -121,11 +125,12 @@ def run(args):
 
     # Second pass for small, distinct colors (eyes, markings) K-Means skipped.
     residual = []
+    residual_per_image = max(1_000, min(RESIDUAL_PER_IMAGE, MAX_RESIDUAL // len(loaded)))
     for _, rgb in loaded:
         lab = quantize.to_lab(rgb)
         _, err = quantize.assign(lab, palette_lab)
         missed = cv2.erode((err > RESIDUAL_DELTA).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
-        residual.append(quantize.sample_pixels(lab[missed], RESIDUAL_PER_IMAGE, rng))
+        residual.append(quantize.sample_pixels(lab[missed], residual_per_image, rng))
     palette_lab = quantize.add_detail_colors(palette_lab, np.concatenate(residual), min_pixels=40,
                                              min_delta=max(args.merge_delta, 12.0), seed=args.seed)
     palette_rgb = quantize.lab_to_rgb(palette_lab)
@@ -136,7 +141,9 @@ def run(args):
     # detail (page sizes that print the image at about the same scale).
     pages = {spec.key: [] for spec in specs}
     report = []
-    for path, rgb in loaded:
+    loaded.reverse()
+    while loaded:
+        path, rgb = loaded.pop()  # drop each full-size image once it is done
         h, w = rgb.shape[:2]
         try:
             base_labels, err = quantize.assign(quantize.to_lab(rgb), palette_lab)
@@ -182,6 +189,7 @@ def run(args):
                 log.info("    - %s", f)
             if flags and args.skip_poor:
                 continue
+            reference = shrink(reference, REFERENCE_MAX_SIDE)
             for spec in group:
                 pages[spec.key].append(BookPage(name=path.stem, width=w, height=h, outlines=outlines,
                                                 markers=markers, used=list(used), reference=reference,
@@ -204,6 +212,14 @@ def run(args):
 
     write_report(args.output / "report.txt", args, report, palette_rgb)
     return 0
+
+
+def shrink(rgb, max_side):
+    h, w = rgb.shape[:2]
+    f = max_side / max(h, w)
+    if f >= 1:
+        return rgb
+    return cv2.resize(rgb, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
 
 
 def prune_palette(pages, palette):
