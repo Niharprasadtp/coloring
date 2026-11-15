@@ -32,6 +32,8 @@ class BookPage:
     reference: np.ndarray = field(repr=False)  # quantized RGB image
     details: list = field(default_factory=list)  # (rgb, [polygons]) too small to number
     detail_style: str = "outline"  # "outline": drawn for the buyer to color; "color": printed filled in
+    labels: np.ndarray = field(default=None, repr=False)      # full-size palette indices (for --package)
+    detail_map: np.ndarray = field(default=None, repr=False)  # palette index of pre-colored details, -1 elsewhere
 
 
 def _needs_underline(text, n_colors):

@@ -10,7 +10,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from . import preview, quantize, regions
+from . import package, preview, quantize, regions
 from .layout import DIFFICULTIES, MM2_PER_PT2, PAGE_SPECS, detail_groups
 from .pdf import BookPage, build_pdf
 
@@ -50,6 +50,9 @@ def parse_args(argv=None):
     p.add_argument("--sizes", nargs="+", choices=PAGE_SPECS, default=list(PAGE_SPECS),
                    help="page sizes to build (default: all)")
     p.add_argument("--title", default="Color by Number", help="book title, used in footers and file names")
+    p.add_argument("--min-radius", type=float, metavar="PT",
+                   help="regions thinner than this (radius in points on the smallest page) are merged away "
+                        "(default: from --difficulty)")
     p.add_argument("--merge-delta", type=float, default=8.0,
                    help="merge palette colors closer than this CIELAB delta E (0 disables, default: 8)")
     p.add_argument("--auto-rotate", action="store_true",
@@ -60,6 +63,11 @@ def parse_args(argv=None):
                    help="small shapes too small to number (eyes, teeth, markings): print them already "
                         "colored, print them as outlines to color from the reference page, or merge "
                         "them away (default: outline)")
+    p.add_argument("--package", action="store_true",
+                   help="also write an Etsy-style download folder: PNG/PDF/SVG styles, Procreate .swatches, palette sheet")
+    p.add_argument("--residual-delta", type=float, default=RESIDUAL_DELTA,
+                   help="colors the palette misses by more than this delta E get a second pass (lower keeps "
+                        "more small features such as eyes)")
     p.add_argument("--skip-poor", action="store_true",
                    help="leave images flagged by the quality check out of the PDFs")
     p.add_argument("--work-size", type=int, default=2000,
@@ -99,6 +107,7 @@ def run(args):
     preset = DIFFICULTIES[args.difficulty]
     k = args.colors or preset.colors
     min_area_mm2 = args.min_area if args.min_area is not None else preset.min_area_mm2
+    min_radius_pt = args.min_radius if args.min_radius is not None else preset.min_radius_pt
     specs = [PAGE_SPECS[s] for s in args.sizes]
     preview_dir = args.output / "previews"
     preview_dir.mkdir(parents=True, exist_ok=True)
@@ -129,7 +138,7 @@ def run(args):
     for _, rgb in loaded:
         lab = quantize.to_lab(rgb)
         _, err = quantize.assign(lab, palette_lab)
-        missed = cv2.erode((err > RESIDUAL_DELTA).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        missed = cv2.erode((err > args.residual_delta).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
         residual.append(quantize.sample_pixels(lab[missed], residual_per_image, rng))
     palette_lab = quantize.add_detail_colors(palette_lab, np.concatenate(residual), min_pixels=40,
                                              min_delta=max(args.merge_delta, 12.0), seed=args.seed)
@@ -162,7 +171,7 @@ def run(args):
             try:
                 labels, region_ids, n, dist, changed, detail_map = regions.cleanup(
                     base_labels, palette_lab,
-                    min_area_mm2 / MM2_PER_PT2 / scale ** 2, preset.min_radius_pt / scale,
+                    min_area_mm2 / MM2_PER_PT2 / scale ** 2, min_radius_pt / scale,
                     DETAIL_MIN_AREA_MM2 / MM2_PER_PT2 / scale ** 2, detail_max_px,
                     max(2.0, DETAIL_MIN_RADIUS_PT / scale),
                     detail_delta=np.inf if args.details == "off" else 25.0)
@@ -193,11 +202,14 @@ def run(args):
             for spec in group:
                 pages[spec.key].append(BookPage(name=path.stem, width=w, height=h, outlines=outlines,
                                                 markers=markers, used=list(used), reference=reference,
-                                                details=details, detail_style=args.details))
+                                                details=details, detail_style=args.details,
+                                                labels=labels.astype(np.uint8) if args.package else None,
+                                                detail_map=detail_map.astype(np.int16) if args.package else None))
 
     if not any(pages.values()):
         log.error("no pages to build")
         return 1
+    unpruned_palette = palette_rgb
     palette_rgb = prune_palette([p for book in pages.values() for p in book], palette_rgb)
     log.info("Colors used in the book: %d", len(palette_rgb))
 
@@ -209,6 +221,16 @@ def run(args):
         build_pdf(out, spec, pages[spec.key], palette_rgb, args.title,
                   auto_rotate=args.auto_rotate, blank_backs=not args.no_blank_backs)
         log.info("Wrote %s (%.1f MB)", out, out.stat().st_size / 1e6)
+
+    if args.package:
+        key = "a4" if "a4" in pages and pages["a4"] else next(k for k, v in pages.items() if v)
+        problems = package.build_package(args.output / "package", pages[key], palette_rgb, unpruned_palette,
+                                         args.title)
+        log.info("Verification: %s", "all numbers match their colors" if not problems
+                 else f"{len(problems)} PROBLEM(S)")
+        for line in problems:
+            log.warning("    VERIFY: %s", line)
+        log.info("Wrote download package to %s", args.output / "package")
 
     write_report(args.output / "report.txt", args, report, palette_rgb)
     return 0

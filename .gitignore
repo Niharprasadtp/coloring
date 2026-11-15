@@ -50,3 +50,13 @@ output/
 # Leftover build output from the main branch (backend/frontend live there)
 backend/
 frontend/
+
+# Etsy OAuth token (secret)
+etsy_token.json
+
+# Source images for books and sets (large pipeline data, like input/)
+input_books/
+input_sets/
+
+# Google Drive links to paid downloads (never publish)
+set_links.json
