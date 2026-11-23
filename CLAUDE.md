@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Python color-by-number generator (`cbn/`). It turns a folder of flat-color images (up to about 50 per run) into print-ready PDF books in Letter, A4 and 16x20 sizes. The entry point is `colorbynumber.py`, which calls `cbn.cli.main`.
 
+`planner/` is a separate tool: a hyperlinked 2026–2027 digital planner PDF generator for E-Ink tablets (ReportLab + PyMuPDF QA). It shares nothing with `cbn/`. See `planner/README.md`; run its commands from inside `planner/`.
+
 This `standalone-generator` branch has no Etsy fulfillment pipeline. That code is on `main`, in `backend/` and `frontend/`.
 
 ## Commands
