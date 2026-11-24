@@ -29,6 +29,41 @@ SETTINGS = {  # level -> build_collection.py arguments
 }
 
 
+# "Simple" series (anime books): few colors per page, similar shades merged, few extra detail colors.
+MINIMAL = {
+    "EASY": ["--difficulty", "intermediate", "-k", "8", "--merge-delta", "12", "--residual-delta", "40"],
+    "MEDIUM": ["--difficulty", "intermediate", "-k", "10", "--merge-delta", "12", "--residual-delta", "40"],
+    "HARD": ["--difficulty", "intermediate", "-k", "12", "--merge-delta", "12", "--residual-delta", "40"],
+}
+
+
+# Car book: 01-05 beginner, 06-10 easy, 11-15 medium, 16+ expert; light numbers on the printable page.
+CARS = {
+    # Fidelity first: the car must look like the original (wheels, rims, lights, trim), so similar shades
+    # are kept apart (low merge-delta) and small parts survive (low min-area). Difficulty comes from the art.
+    "BEGINNER": ["--difficulty", "intermediate", "-k", "14", "--merge-delta", "5", "--residual-delta", "12",
+                 "--min-area", "12", "--min-radius", "3"],
+    "EASY": ["--difficulty", "intermediate", "-k", "20", "--merge-delta", "5", "--residual-delta", "12",
+             "--min-area", "8", "--min-radius", "2.6"],
+    "MEDIUM": ["--difficulty", "expert", "-k", "28", "--merge-delta", "4", "--residual-delta", "10",
+               "--min-area", "5", "--min-radius", "2"],
+    "EXPERT": ["--difficulty", "expert", "-k", "32", "--merge-delta", "4", "--residual-delta", "10",
+               "--min-area", "4", "--min-radius", "1.8"],
+}
+CARS = {k: v + ["--light-numbers"] for k, v in CARS.items()}
+
+
+def settings(folder, path):
+    """build_collection.py arguments for this image (anime books: 15 pages each, minimal colors)."""
+    if folder == "cars":
+        n = int(path.name[:2])
+        return "BEGINNER" if n <= 5 else "EASY" if n <= 10 else "MEDIUM" if n <= 15 else "EXPERT", CARS
+    if folder.startswith("anime"):
+        pos = (int(path.name[:2]) - 1) % 15
+        return "EASY" if pos < 5 else "MEDIUM" if pos < 11 else "HARD", MINIMAL
+    return level(folder, path), SETTINGS
+
+
 def level(folder, path):
     if folder == "scenery":
         m = re.search(r"_(EASY|MEDIUM|HARD|EXPERT|EXTRA_HARD)_", path.name)
@@ -49,13 +84,13 @@ def main():
             dest = OUT / folder / path.stem
             if (dest / "report.txt").exists():
                 continue
-            lv = level(folder, path)
+            lv, table = settings(folder, path)
             with tempfile.TemporaryDirectory() as tmp:
                 src, out = Path(tmp) / "in", Path(tmp) / "out"
                 src.mkdir()
                 shutil.copy(path, src / path.name)
                 subprocess.run([PY, str(ROOT / "build_collection.py"), "-i", str(src), "-o", str(out), "--no-sparkle"]
-                               + SETTINGS[lv], check=False, capture_output=True)
+                               + table[lv], check=False, capture_output=True)
                 built = out / "Design_01"
                 if not (built / "report.txt").exists():
                     print(f"FAILED {folder}/{path.stem}", flush=True)

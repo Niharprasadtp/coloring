@@ -19,6 +19,9 @@ PAGE_MARGIN = 0.05                 # fraction of the width kept clear at the sid
 STRIP_H = 520                      # palette strip height in the "palette" style
 DARK = dict(line=(40, 40, 40), number=(30, 30, 30))
 LIGHT = dict(line=(185, 185, 185), number=(150, 150, 150))
+# Light gray that stays readable on paper but vanishes under paint.
+PRINT_LIGHT = dict(line=(175, 175, 175), number=(140, 140, 140))
+PALETTE_LOOK = DARK                # look of the "palette" style (the printable book page)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
@@ -104,7 +107,7 @@ def render_style(page, palette, lut, style):
             cv2.putText(canvas, text, (round(m.x * scale + x0 - tw / 2), round(m.y * scale + y0 + th / 2)),
                         FONT, fs, ink, max(1, round(scale * 0.9)), cv2.LINE_AA)
     else:
-        look = LIGHT if style == "light" else DARK
+        look = LIGHT if style == "light" else PALETTE_LOOK if style == "palette" else DARK
         _draw_art(canvas, page, scale, x0, y0, look["line"], look["number"], numbers=style != "contour",
                   fill_details=style != "contour")
     if style == "palette":

@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from cbn import cli
+from cbn import cli, package
 
 # Gemini overlays a translucent white sparkle bottom-right: image size -> (distance of its center from the
 # corner, scale of the 1792x2400 template, opacity relative to the template).
@@ -118,7 +118,11 @@ def main():
     p.add_argument("--details", default="color", choices=["outline", "color", "off"])
     p.add_argument("--only", type=int, nargs="*", help="design numbers to build (default: all)")
     p.add_argument("--no-sparkle", action="store_true", help="images have no Gemini sparkle mark: skip its removal")
+    p.add_argument("--light-numbers", action="store_true",
+                   help="light gray lines and numbers on the printable palette page (vanish under paint)")
     a = p.parse_args()
+    if a.light_numbers:
+        package.PALETTE_LOOK = package.PRINT_LIGHT
 
     images = cli.find_images(a.input)
     a.output.mkdir(parents=True, exist_ok=True)

@@ -519,8 +519,8 @@ def closeup_image(col, n, out):
     s = 760
     crop = pil_from_bgr(big[cy0 - s // 2:cy0 + s // 2, cx0 - s // 2:cx0 + s // 2]).resize((1500, 1500), Image.LANCZOS)
     shadowed(img, crop, (140, 250), border=16)
-    text_l(img, "CRISP LINES", 1760, 330, font("georgiab", 100), PLUM)
-    text_l(img, "READABLE NUMBERS", 1760, 450, font("georgiab", 100), CORAL)
+    text_l(img, "CRISP LINES", 1760, 340, font("georgiab", 64), PLUM)
+    text_l(img, "READABLE NUMBERS", 1760, 430, font("georgiab", 64), CORAL)   # larger runs off the right edge
     for i, ln in enumerate(["Smooth vector outlines", "Clear numbered regions", "Sharp at A4 print size",
                             "Zoom in on iPad, still crisp", "Verified: each number matches", "its color"]):
         text_l(img, "•  " + ln if i < 5 else "    " + ln, 1760, 650 + i * 92, font("segoeui", 50), INK)

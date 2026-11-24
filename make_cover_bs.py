@@ -200,7 +200,8 @@ def stat_card(big, small, accent, w=780, h=170):
     return img
 
 
-def make(col, hero, others, count, theme, designs, out, palette="teal"):
+def make(col, hero, others, count, theme, designs, out, palette="teal", cards=None):
+    """cards: optional [(big, small, rgb), x3] to replace the default zones / colors / iPad stat cards."""
     top, bottom, accent = THEMES[palette]
     canvas = backdrop(col, hero, top, bottom).convert("RGBA")
 
@@ -254,9 +255,10 @@ def make(col, hero, others, count, theme, designs, out, palette="teal"):
     stats = [col.stats[n] for n in designs if col.stats.get(n)]
     zl, zh = min(s[0] for s in stats), max(s[0] for s in stats)
     cl, ch = min(s[1] for s in stats), max(s[1] for s in stats)
-    cards = [stat_card(f"{round(zl, -1):,}-{round(zh, -2):,}", "numbered zones", (255, 196, 30)),
-             stat_card(f"{cl}-{ch} colors", "own palette per page", (30, 186, 150)),
-             stat_card("iPad + Print", "Procreate & paper", (70, 130, 230))]
+    cards = ([stat_card(big, small, rgb) for big, small, rgb in cards] if cards else
+             [stat_card(f"{round(zl, -1):,}-{round(zh, -2):,}", "numbered zones", (255, 196, 30)),
+              stat_card(f"{cl}-{ch} colors", "own palette per page", (30, 186, 150)),
+              stat_card("iPad + Print", "Procreate & paper", (70, 130, 230))])
     gap = 40
     total = sum(c.width for c in cards) + gap * 2
     x = (W - total) // 2

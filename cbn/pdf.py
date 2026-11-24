@@ -123,6 +123,11 @@ def _template_page(c, spec, page, palette, n_colors, title, page_no, auto_rotate
     _footer(c, spec, page, palette, title, page_no, pl.rotated)
 
 
+# Mystery mode: no color reference anywhere in the book (thumbnail, gallery), so the
+# picture stays a surprise. The caller ships the reference as a separate file.
+MYSTERY = False
+
+
 def _footer(c, spec, page, palette, title, page_no, rotated):
     """Color strip for this page's numbers, a reference thumbnail, and the page number."""
     ui = spec.ui
@@ -133,7 +138,10 @@ def _footer(c, spec, page, palette, title, page_no, rotated):
     th = top - bottom
     tw = min(th * ref.shape[1] / ref.shape[0], width * 0.3)
     th = tw * ref.shape[0] / ref.shape[1]
-    c.drawImage(_jpeg(ref, 500), left + width - tw, bottom, tw, th)
+    if MYSTERY:
+        tw = -12 * ui
+    else:
+        c.drawImage(_jpeg(ref, 500), left + width - tw, bottom, tw, th)
 
     caption = 8 * ui
     c.setFillGray(TEXT_GRAY)
@@ -241,6 +249,7 @@ def build_pdf(path, spec, pages, palette, title, auto_rotate=False, blank_backs=
         if blank_backs:
             _blank_back(c, spec)
             c.showPage()
-    _gallery(c, spec, pages)
+    if not MYSTERY:
+        _gallery(c, spec, pages)
     _master_key(c, spec, palette)
     c.save()

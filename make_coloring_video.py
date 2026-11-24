@@ -140,7 +140,7 @@ def build(col, n, out_dir, pages=46, out_name="paint_by_number_coloring_video.mp
             text_c(frame, "Your finished", 280, 330, f_mid, PLUM)
             text_c(frame, "painting", 280, 400, f_mid, PLUM)
             text_c(frame, name, 280, 500, f_small, TEAL)
-            text_c(frame, f"{pages} pages included", 280, 640, f_mid, CORAL)
+            text_c(frame, f"{pages} pages included" if pages > 1 else "Single design", 280, 640, f_mid, CORAL)
             text_c(frame, "Instant download", 280, 710, f_small, INK)
         proc.stdin.write(np.ascontiguousarray(np.asarray(frame)).tobytes())
     proc.stdin.close()

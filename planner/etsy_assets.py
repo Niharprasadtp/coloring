@@ -12,9 +12,12 @@ links, templates) comes from the generated planner, so nothing is overstated.
 from __future__ import annotations
 
 import argparse
+import math
+import random
 import sys
 import tempfile
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 
 import pymupdf
@@ -25,13 +28,19 @@ from eink_planner.devices import DEVICES, Options
 from eink_planner.pages.templates import TEMPLATES
 
 W, H = 3000, 2250                      # 4:3, what Etsy search thumbnails show
-BG = (244, 241, 236)
-INK = (38, 38, 38)
-SOFT = (92, 88, 82)
-ACCENT = (78, 108, 142)
-CHIP = (232, 227, 219)
-BEZEL = (46, 46, 46)
+# Minimal palette: warm ivory paper, near-black ink, one muted slate accent that
+# matches the planner's Home button.
+BG = (246, 243, 238)
+TINT = (236, 231, 223)                 # soft backdrop shapes
+LINEN = (233, 227, 218)                # desk surface in the lifestyle shot
+INK = (34, 34, 34)
+SOFT = (110, 104, 96)
+ACCENT = (70, 98, 128)
+CHIP = (234, 229, 221)
+BEZEL = (40, 40, 42)
 
+# Bundled OFL fonts (fonts/): Playfair Display for headlines, Inter for body text.
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
 _FONT_DIRS = ["/usr/share/fonts/truetype/noto", "/usr/share/fonts/truetype/liberation",
               "/usr/share/fonts/truetype/dejavu", "/Library/Fonts", "C:/Windows/Fonts"]
 _FONT_NAMES = {False: ["NotoSans-Regular.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf",
@@ -40,13 +49,49 @@ _FONT_NAMES = {False: ["NotoSans-Regular.ttf", "LiberationSans-Regular.ttf", "De
                       "Arial Bold.ttf", "arialbd.ttf"]}
 
 
-def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+def _system_font(size: int, bold: bool) -> ImageFont.FreeTypeFont:
     for d in _FONT_DIRS:
         for n in _FONT_NAMES[bold]:
             p = Path(d) / n
             if p.exists():
                 return ImageFont.truetype(str(p), size)
     sys.exit("error: no TrueType font found (install Noto Sans or Liberation Sans)")
+
+
+@lru_cache(maxsize=None)
+def font(size: int, bold: bool = False, weight: int | None = None) -> ImageFont.FreeTypeFont:
+    """Inter (sans) at a weight; bold means 650."""
+    w = weight or (650 if bold else 400)
+    p = FONT_DIR / "Inter.ttf"
+    if not p.exists():
+        return _system_font(size, w >= 600)
+    f = ImageFont.truetype(str(p), size)
+    f.set_variation_by_axes([max(14, min(32, size)), w])
+    return f
+
+
+@lru_cache(maxsize=None)
+def serif(size: int, weight: int = 600) -> ImageFont.FreeTypeFont:
+    """Playfair Display for headlines."""
+    p = FONT_DIR / "PlayfairDisplay.ttf"
+    if not p.exists():
+        return _system_font(size, True)
+    f = ImageFont.truetype(str(p), size)
+    f.set_variation_by_axes([weight])
+    return f
+
+
+def tracked(d: ImageDraw.ImageDraw, xy, text: str, f, fill, track: int) -> int:
+    """Letter-spaced small caps label. Returns the x after the text."""
+    x, y = xy
+    for ch in text:
+        d.text((x, y), ch, font=f, fill=fill)
+        x += d.textlength(ch, font=f) + track
+    return int(x)
+
+
+def save(img: Image.Image, out: Path) -> None:
+    img.convert("RGB").save(out, "JPEG", quality=90, optimize=True, progressive=True)
 
 
 # --- rendering ---------------------------------------------------------------------
@@ -147,9 +192,9 @@ def marker(d, cx, cy, n, r=34) -> None:
 
 
 def headline(d, text, sub=None, x=150, y=130, width=W - 300) -> int:
-    y = para(d, (x, y), text, font(104, True), INK, width, 1.12)
+    y = para(d, (x, y), text, serif(112, 600), INK, width, 1.12)
     if sub:
-        y = para(d, (x, y + 16), sub, font(48), SOFT, width) + 10
+        y = para(d, (x, y + 22), sub, font(48), SOFT, width) + 10
     return y
 
 
@@ -159,27 +204,224 @@ def new() -> tuple[Image.Image, ImageDraw.ImageDraw]:
 
 
 # --- listing images ----------------------------------------------------------------
+def stylus(length: int) -> Image.Image:
+    """Generic matte stylus pointing up (tip at the top), RGBA."""
+    w = max(int(length * 0.05), 12)
+    tip = int(w * 2.2)
+    img = Image.new("RGBA", (w, length), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, tip - 2, w - 1, length - 1), w // 2, fill=(52, 52, 55, 255))
+    d.rectangle((int(w * 0.18), tip + 4, int(w * 0.34), length - w), fill=(78, 78, 82, 255))
+    d.polygon([(0, tip), (w - 1, tip), (w // 2 + w // 8, 6), (w // 2 - w // 8, 6)],
+              fill=(214, 211, 205, 255))
+    d.ellipse((w // 2 - w // 6, 0, w // 2 + w // 6, w // 3), fill=(60, 60, 62, 255))
+    return img
+
+
+def paste_object(canvas: Image.Image, obj: Image.Image, center: tuple[int, int],
+                 angle: float = 0, blur: int = 22, offset: tuple[int, int] = (14, 22),
+                 alpha: int = 80) -> None:
+    """Paste an RGBA object rotated around its centre, with a soft drop shadow."""
+    o = obj.rotate(angle, resample=Image.BICUBIC, expand=True)
+    pad = blur * 3
+    a = o.split()[3]
+    sh = Image.new("RGBA", (o.width + 2 * pad, o.height + 2 * pad), (0, 0, 0, 0))
+    sh_a = Image.new("L", sh.size, 0)
+    sh_a.paste(a.point(lambda v: v * alpha // 255), (pad, pad))
+    sh.putalpha(sh_a.filter(ImageFilter.GaussianBlur(blur)))
+    cx, cy = center
+    x, y = cx - o.width // 2, cy - o.height // 2
+    canvas.paste(sh, (x - pad + offset[0], y - pad + offset[1]), sh)
+    canvas.paste(o, (x, y), o)
+
+
+def tablet_rgba(page: Image.Image) -> Image.Image:
+    tab, b = tablet(page)
+    mask = Image.new("L", tab.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, tab.width - 1, tab.height - 1),
+                                           int(b * 1.6), fill=255)
+    out = tab.convert("RGBA")
+    out.putalpha(mask)
+    return out
+
+
 def img_hero(p: Planner, dev, out: Path) -> None:
+    """Search thumbnail: big, short headline readable at 250 px; product fills the
+    right side. Kept to a few words on purpose."""
     img, d = new()
-    x = 150
-    d.text((x, 190), "2027 DIGITAL PLANNER", font=font(46, True), fill=ACCENT)
-    y = para(d, (x, 270), "Your whole year, one tap away", font(124, True), INK, 1250, 1.08)
-    y = para(d, (x, y + 30), f"Made for {dev.label}", font(56), SOFT, 1250) + 50
-    for t in (f"{p.info['pages']} hyperlinked pages", "Dec 2026 – Dec 2027",
-              "Daily · Weekly · Monthly · Quarterly", "Minimal + ADHD-friendly daily pages",
-              "Monday or Sunday start", "Right- or left-handed layout"):
-        y = chip(d, (x, y), t, font(44)) + 26
-    # Two overlapping tablets inside the right-hand area, back one higher.
-    area_x, area_w, top, bottom = 1440, W - 1440 - 90, 120, H - 120
-    shift, drop = int(area_w * 0.2), 140
+    d.ellipse((1250, -520, 3500, 1730), fill=TINT)          # soft backdrop disc
+    x, colw = 170, 1080
+    tracked(d, (x, 300), "HYPERLINKED PLANNER", font(40, weight=600), ACCENT, 9)
+    big = serif(430, 700)
+    d.text((x - 12, 330), "2027", font=big, fill=INK)
+    y = d.textbbox((x, 330), "2027", font=big)[3] + 40
+    sub = serif(150, 500)
+    for line in ("Digital", "Planner"):
+        d.text((x, y), line, font=sub, fill=INK)
+        y = d.textbbox((x, y), line, font=sub)[3] + 30
+    y += 40
+    d.line((x, y, x + 160, y), fill=ACCENT, width=6)
+    y += 60
+    f = font(56)
+    while d.textlength(f"for {dev.label}", font=f) > colw:
+        f = font(f.size - 2)
+    d.text((x, y), f"for {dev.label}", font=f, fill=SOFT)
+    y += 140
+    for t in ("Minimal + ADHD layouts", "Dec 2026 – Dec 2027"):
+        y = chip(d, (x, y), t, font(46, weight=500)) + 28
+
+    # Two overlapping tablets on the right, the front one nearly full height.
+    area_x, area_w, top, bottom = 1360, W - 1360 - 80, 90, H - 90
+    shift, drop = int(area_w * 0.24), 170
     ph = fit_height(p, area_w - shift, bottom - top - drop, bezel=True)
-    back, b = tablet(p.render("Home", ph)[0])
-    front, _ = tablet(p.render("Friday, January 1", ph)[0])
+    back = tablet_rgba(p.render("Year at a Glance", ph)[0])
+    front = tablet_rgba(p.render("Friday, January 1", ph)[0])
     x0 = area_x + (area_w - shift - back.width) // 2
     y0 = top + (bottom - top - drop - back.height) // 2
-    shadowed(img, back, (x0, y0), int(b * 1.6))
-    shadowed(img, front, (x0 + shift, y0 + drop), int(b * 1.6))
-    img.save(out)
+    paste_object(img, back, (x0 + back.width // 2, y0 + back.height // 2), blur=30,
+                 offset=(0, 24), alpha=70)
+    fx, fy = x0 + shift, y0 + drop
+    paste_object(img, front, (fx + front.width // 2, fy + front.height // 2), blur=30,
+                 offset=(0, 24), alpha=80)
+    pen = stylus(int(front.height * 0.7))
+    paste_object(img, pen, (fx + front.width - int(front.width * 0.11),
+                            fy + int(front.height * 0.58)), angle=-14, blur=12,
+                 offset=(18, 16), alpha=90)
+    save(img, out)
+
+
+def _grain(img: Image.Image, amount: int = 10) -> Image.Image:
+    noise = Image.effect_noise(img.size, 40).convert("RGB")
+    return Image.blend(img, noise, amount / 255)
+
+
+def mug() -> Image.Image:
+    s = 620
+    m = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(m)
+    d.ellipse((0, 0, s - 1, s - 1), fill=(250, 249, 246, 255))                 # saucer
+    d.ellipse((40, 40, s - 41, s - 41), outline=(232, 228, 221, 255), width=4)
+    d.ellipse((110, 110, s - 111, s - 111), fill=(248, 246, 242, 255),
+              outline=(226, 221, 213, 255), width=6)                         # cup rim
+    d.ellipse((140, 140, s - 141, s - 141), fill=(112, 78, 54, 255))           # coffee
+    d.ellipse((175, 175, s - 176, s - 176), outline=(150, 112, 82, 255), width=8)
+    d.rounded_rectangle((s - 150, s // 2 - 34, s - 40, s // 2 + 34), 30,
+                        fill=(248, 246, 242, 255), outline=(226, 221, 213, 255), width=5)
+    return m
+
+
+def sprig(length: int, seed: int = 3) -> Image.Image:
+    """Simple eucalyptus-style sprig pointing up."""
+    rnd = random.Random(seed)
+    wdt = int(length * 0.55)
+    img = Image.new("RGBA", (wdt, length), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx = wdt // 2
+    pts = [(cx + int(math.sin(t / 9) * 18), length - t * length // 60) for t in range(61)]
+    d.line(pts, fill=(118, 132, 112, 255), width=7)
+    for i in range(4, 58, 5):
+        px, py = pts[i]
+        r = int(length * (0.07 - i * 0.0005))
+        for side in (-1, 1):
+            leaf = Image.new("RGBA", (r * 2, int(r * 1.3)), (0, 0, 0, 0))
+            col = rnd.choice([(150, 168, 146), (136, 156, 133), (166, 182, 160)])
+            ImageDraw.Draw(leaf).ellipse((0, 0, r * 2 - 1, int(r * 1.3) - 1), fill=col + (255,))
+            leaf = leaf.rotate(side * (25 + rnd.randint(0, 20)), expand=True,
+                               resample=Image.BICUBIC)
+            img.paste(leaf, (px + (4 if side > 0 else -leaf.width - 4),
+                             py - leaf.height // 2), leaf)
+    return img
+
+
+def img_lifestyle(p: Planner, out: Path) -> None:
+    """Flat-lay desk scene: the planner in use, a stylus, coffee and a sprig."""
+    img = _grain(Image.new("RGB", (W, H), LINEN), 9)
+    ph = fit_height(p, 1500, 1850, bezel=True)
+    tab = tablet_rgba(p.render("Week 02", ph)[0])
+    paste_object(img, sprig(820), (2700, 1930), angle=48, blur=14, alpha=60)
+    paste_object(img, tab, (1180, 1125), angle=-5, blur=34, offset=(10, 30), alpha=85)
+    paste_object(img, stylus(int(tab.height * 0.72)), (1180 + tab.width // 2 + 170, 1180),
+                 angle=-8, blur=12, offset=(16, 18), alpha=90)
+    paste_object(img, mug(), (2560, 600), blur=24, offset=(12, 22), alpha=70)
+    d = ImageDraw.Draw(img)
+    x = 2150
+    d.text((x, 1060), "Plan with", font=serif(118, 600), fill=INK)
+    d.text((x, 1200), "intention.", font=serif(118, 600), fill=INK)
+    para(d, (x, 1390), "Write by hand. Tap to move around.", font(44), SOFT, 720)
+    save(img, out)
+
+
+def img_pair(p1: Planner, t1: str, p2: Planner, t2: str, head: str, sub: str,
+             caps: tuple[str, str], out: Path) -> None:
+    img, d = new()
+    headline(d, head, sub)
+    ph = fit_height(p1, W // 2 - 230, H - 560 - 190, bezel=True)
+    for i, (pl, title, cap) in enumerate(((p1, t1, caps[0]), (p2, t2, caps[1]))):
+        tab = tablet_rgba(pl.render(title, ph)[0])
+        x = W // 2 - tab.width - 80 if i == 0 else W // 2 + 80
+        paste_object(img, tab, (x + tab.width // 2, 560 + tab.height // 2), blur=26,
+                     offset=(0, 20), alpha=75)
+        ImageDraw.Draw(img).text((x + tab.width / 2, 560 + tab.height + 40), cap,
+                                 font=font(52, True), fill=INK, anchor="mt")
+    save(img, out)
+
+
+SETUP_STEPS = {
+    "remarkable": [("Download", "Unzip the file on your computer or phone."),
+                   ("Add to your tablet", "Drag the PDF into the reMarkable app or "
+                                          "my.remarkable.com. It syncs to your tablet."),
+                   ("Tap and write", "Tap links with your finger. Write with your pen.")],
+    "kindle": [("Download", "Unzip the file on your computer or phone."),
+               ("Send to Kindle", "Upload the PDF at amazon.com/sendtokindle. "
+                                  "Don't convert it."),
+               ("Tap and write", "Tap links with your finger. Write with your pen.")],
+    "supernote": [("Download", "Unzip the file on your computer or phone."),
+                  ("Copy to your tablet", "Add the PDF with Supernote Partner or a USB "
+                                          "cable, in the Document folder."),
+                  ("Tap and write", "Tap links with your finger. Write with your pen.")],
+}
+
+
+def _icon(d: ImageDraw.ImageDraw, n: int, cx: int, cy: int) -> None:
+    c, w = INK, 12
+    if n == 0:                                    # arrow into a tray
+        d.line((cx, cy - 110, cx, cy + 30), fill=c, width=w)
+        d.line((cx - 60, cy - 30, cx, cy + 32, cx + 60, cy - 30), fill=c, width=w, joint="curve")
+        d.line((cx - 110, cy + 30, cx - 110, cy + 100, cx + 110, cy + 100, cx + 110, cy + 30),
+               fill=c, width=w, joint="curve")
+    elif n == 1:                                  # tablet with sync arrows
+        d.rounded_rectangle((cx - 95, cy - 130, cx + 95, cy + 130), 26, outline=c, width=w)
+        d.arc((cx - 50, cy - 50, cx + 50, cy + 50), 200, 340, fill=ACCENT, width=10)
+        d.arc((cx - 50, cy - 50, cx + 50, cy + 50), 20, 160, fill=ACCENT, width=10)
+        d.polygon([(cx + 52, cy - 20), (cx + 30, cy - 4), (cx + 62, cy + 2)], fill=ACCENT)
+        d.polygon([(cx - 52, cy + 20), (cx - 30, cy + 4), (cx - 62, cy - 2)], fill=ACCENT)
+    else:                                         # tablet with a handwritten line
+        d.rounded_rectangle((cx - 95, cy - 130, cx + 95, cy + 130), 26, outline=c, width=w)
+        pts = [(cx - 55 + t * 3, cy + 10 + int(math.sin(t / 4) * 14)) for t in range(37)]
+        d.line(pts, fill=ACCENT, width=9, joint="curve")
+        d.line((cx - 55, cy - 50, cx + 55, cy - 50), fill=(190, 185, 178), width=7)
+
+
+def img_setup(dev, out: Path) -> None:
+    img, d = new()
+    headline(d, "Ready in minutes", "Instant download. A START HERE guide walks you "
+                                    "through every step.")
+    steps = SETUP_STEPS[dev.family]
+    gap, top = 80, 640
+    cw = (W - 300 - gap * 2) // 3
+    ch = 1180
+    for i, (head, body) in enumerate(steps):
+        x = 150 + i * (cw + gap)
+        d.rounded_rectangle((x, top, x + cw, top + ch), 40, fill=(252, 250, 247),
+                            outline=(226, 221, 213), width=3)
+        marker(d, x + 110, top + 110, i + 1, r=44)
+        _icon(d, i, x + cw // 2, top + 470)
+        d.text((x + cw // 2, top + 760), head, font=serif(72, 600), fill=INK, anchor="mt")
+        yy = top + 880
+        for line in wrap(d, body, font(44), cw - 160):
+            d.text((x + cw // 2, yy), line, font=font(44), fill=SOFT, anchor="mt")
+            yy += 60
+    save(img, out)
 
 
 def img_navigation(p: Planner, out: Path) -> None:
@@ -219,7 +461,7 @@ def img_navigation(p: Planner, out: Path) -> None:
         marker(d, tx + 34, y + 40, n)
         d.text((tx + 100, y), head, font=font(58, True), fill=INK)
         y = para(d, (tx + 100, y + 80), body, font(44), SOFT, W - tx - 250) + 70
-    img.save(out)
+    save(img, out)
 
 
 def img_inside(p: Planner, out: Path) -> None:
@@ -242,7 +484,7 @@ def img_inside(p: Planner, out: Path) -> None:
         thumb(img, p, title, th, (x, y))
         ImageDraw.Draw(img).text((x + tw2 / 2, y + th + 30), cap, font=font(44, True),
                                  fill=INK, anchor="mt")
-    img.save(out)
+    save(img, out)
 
 
 def img_daily(p_min: Planner, p_adhd: Planner, out: Path) -> None:
@@ -258,7 +500,7 @@ def img_daily(p_min: Planner, p_adhd: Planner, out: Path) -> None:
         shadowed(img, tab, (x, 560), int(b * 1.6))
         ImageDraw.Draw(img).text((x + tab.width / 2, 560 + tab.height + 40), cap,
                                  font=font(56, True), fill=INK, anchor="mt")
-    img.save(out)
+    save(img, out)
 
 
 def img_options(variants: list[tuple], out: Path) -> None:
@@ -286,7 +528,7 @@ def img_options(variants: list[tuple], out: Path) -> None:
         shadowed(img, bordered, (bx, by), 6, blur=14, offset=8)
         ImageDraw.Draw(img).text((x + cw / 2, y + ch + 28), title, font=font(46, True),
                                  fill=INK, anchor="mt")
-    img.save(out)
+    save(img, out)
 
 
 TEMPLATE_PICKS = ["Cornell Notes", "Meeting Minutes", "Priority Matrix", "Monthly Budget",
@@ -313,7 +555,7 @@ def img_templates(p: Planner, out: Path) -> None:
                                                      / p.doc[0].rect.height)) // 2, y))
         ImageDraw.Draw(img).text((x + cw / 2, y + b.height + 24), title, font=font(40, True),
                                  fill=INK, anchor="mt")
-    img.save(out)
+    save(img, out)
 
 
 def img_projects(p: Planner, out: Path) -> None:
@@ -330,7 +572,7 @@ def img_projects(p: Planner, out: Path) -> None:
     for t, b in tabs:
         shadowed(img, t, (x, y), int(b * 1.6))
         x += t.width + gap
-    img.save(out)
+    save(img, out)
 
 
 def img_included(dev, files: list[str], p: Planner, out: Path) -> None:
@@ -356,7 +598,7 @@ def img_included(dev, files: list[str], p: Planner, out: Path) -> None:
     for t in notes:
         d.ellipse((x2, y2 + 18, x2 + 22, y2 + 40), fill=ACCENT)
         y2 = para(d, (x2 + 50, y2), t, font(46), INK, W - x2 - 200) + 22
-    img.save(out)
+    save(img, out)
 
 
 # --- listing copy --------------------------------------------------------------------
@@ -471,7 +713,8 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     colors = not dev.grayscale_only
     base = Options(dev, color_mode="eink_color" if colors else "bw")
-    with tempfile.TemporaryDirectory() as tmp:
+    # Open PDFs keep their files locked on Windows, so cleanup may fail there.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         tmp = Path(tmp)
         p = Planner(base, tmp)
         p_adhd = Planner(replace(base, daily_style="adhd"), tmp)
@@ -492,15 +735,27 @@ def main(argv=None) -> int:
             for s in ("Minimal", "ADHD"):
                 files.append(f"{o} {s} (ZIP, {per} planners)")
         steps = [("01_hero", lambda f: img_hero(p, dev, f)),
-                 ("02_navigation", lambda f: img_navigation(p, f)),
-                 ("03_inside", lambda f: img_inside(p, f)),
-                 ("04_daily_styles", lambda f: img_daily(p, p_adhd, f)),
-                 ("05_options", lambda f: img_options(variants, f)),
-                 ("06_templates", lambda f: img_templates(p, f)),
-                 ("07_projects", lambda f: img_projects(p, f)),
-                 ("08_whats_included", lambda f: img_included(dev, files, p, f))]
+                 ("02_lifestyle", lambda f: img_lifestyle(p, f)),
+                 ("03_navigation", lambda f: img_navigation(p, f)),
+                 ("04_inside", lambda f: img_inside(p, f)),
+                 ("05_daily_styles", lambda f: img_pair(
+                     p, "Friday, January 1", p_adhd, "Friday, January 1",
+                     "Two daily styles included",
+                     "Minimal for a calm page, or ADHD-friendly with time blocks, an energy "
+                     "check and a brain dump.", ("Minimal", "ADHD-friendly"), f)),
+                 ("06_month_week", lambda f: img_pair(
+                     p, "January 2027", p, "Week 02", "Plan your months and weeks",
+                     "13 monthly pages and a weekly spread for every week of the year.",
+                     ("Monthly", "Weekly"), f)),
+                 ("07_options", lambda f: img_options(variants, f)),
+                 ("08_templates", lambda f: img_templates(p, f)),
+                 ("09_projects", lambda f: img_projects(p, f)),
+                 ("10_setup", lambda f: img_setup(dev, f)),
+                 ("11_whats_included", lambda f: img_included(dev, files, p, f))]
+        for old in [*out.glob("*.png"), *out.glob("*.jpg")]:
+            old.unlink()
         for name, fn in steps:
-            path = out / f"{name}.png"
+            path = out / f"{name}.jpg"
             fn(path)
             print(f"wrote {path}")
         (out / "listing.md").write_text(listing_copy(dev, p, colors))

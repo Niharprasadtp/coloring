@@ -129,7 +129,110 @@ PRODUCTS = {
               "beach coloring pages", "coloring book pdf", "ipad coloring page", "travel lover gift"]),
 }
 
-NAME_FIX = {"santas": "Santa's", "and": "and", "of": "of", "in": "in", "on": "on", "with": "with"}
+ANIME_SECTION = "Anime Paint by Number"
+ANIME_CORE = ["anime coloring book", "anime coloring pages", "easy color by number", "manga coloring pages"]
+PRODUCTS.update({
+    "anime_love": dict(
+        name="Sakura Lane: Love Story", items=nums("anime_love", (1, 15)), price=449, section=ANIME_SECTION, cast=True,
+        title="Anime Paint by Number Book, 15 Cozy Anime Romance Color by Number Pages, Simple Easy Colors, Procreate iPad and Printable PDF",
+        blurb="Meet the Sakura Lane Guardians! In this cozy romance book, café owner Hana and barista Ren share an umbrella in the rain, Kai gives Sora a sunflower, and the whole crew celebrates a snowy Christmas together. Simple pages with only a few colors each.",
+        tags=ANIME_CORE + ["kawaii coloring", "cozy anime coloring", "anime couple art", "gift for anime fan", "anime girl coloring"]),
+    "anime_battle": dict(
+        name="Sakura Lane: Guardians", items=nums("anime_battle", (16, 30)), price=449, section=ANIME_SECTION, cast=True,
+        title="Anime Paint by Number Book, 15 Anime Action Hero Color by Number Pages, Simple Easy Colors, Procreate iPad and Printable PDF",
+        blurb="By night, the Sakura Lane friends are secret guardians: Hana with her cherry-blossom katana, Ren with his water shield, Kai with flaming gauntlets, Sora with her wind bow, Yuki with a magic paintbrush and Mochi the giant spirit cat. Simple action pages with only a few colors each.",
+        tags=ANIME_CORE + ["anime hero coloring", "anime boy coloring", "fantasy coloring", "gift for anime fan", "kawaii coloring"]),
+    "anime_adventure": dict(
+        name="Sakura Lane: Other World", items=nums("anime_adventure", (31, 45)), price=449, section=ANIME_SECTION, cast=True,
+        title="Anime Paint by Number Book, 15 Fantasy Adventure Anime Color by Number Pages, Simple Easy Colors, Procreate iPad Printable PDF",
+        blurb="A portal of cherry petals pulls the Sakura Lane friends into another world: a mushroom village, a baby griffin, a dragon flight above the clouds, a floating sky market and a crystal cave with a sleeping golden dragon. Simple pages with only a few colors each.",
+        tags=ANIME_CORE + ["fantasy coloring", "dragon coloring page", "kawaii coloring", "cozy anime coloring", "gift for anime fan"]),
+    "anime_saga_45": dict(
+        name="Sakura Lane: Complete Saga", price=999, section=ANIME_SECTION, cast=True,
+        items=nums("anime_love", (1, 15)) + nums("anime_battle", (16, 30)) + nums("anime_adventure", (31, 45)),
+        title="45 Anime Paint by Number Pages, Simple Easy Color by Number Book, Romance, Action and Fantasy, Procreate iPad and Printable PDF",
+        blurb="The complete Sakura Lane Guardians saga in one book: 15 love story pages, 15 guardian battle pages and 15 other-world adventure pages, all with the same original cast of friends. Simple pages with only a few colors each.",
+        tags=ANIME_CORE + ["kawaii coloring", "fantasy coloring", "cozy anime coloring", "anime girl coloring", "gift for anime fan"]),
+})
+# Hand-picked cover art (most eye-catching pages): hero on the iPad + 6 fanned tablets + 3 featured pages.
+PRODUCTS["anime_love"].update(
+    hero="12_cherry_tree_confession",
+    others=["06_shared_umbrella", "14_festival_date", "01_milkshake_for_two", "13_ferris_wheel", "15_christmas_gifts",
+            "07_bicycle_ride"],
+    featured=["06_shared_umbrella", "12_cherry_tree_confession", "14_festival_date"])
+PRODUCTS["anime_battle"].update(
+    hero="26_guardian_transformation",
+    others=["21_hana_night_leap", "18_spirit_cat_mochi", "27_shadow_serpent", "29_shadow_king", "22_ren_water_shield",
+            "30_victory_at_dawn"],
+    featured=["21_hana_night_leap", "26_guardian_transformation", "29_shadow_king"])
+PRODUCTS["anime_adventure"].update(
+    hero="40_dragon_flight",
+    others=["36_cherry_petal_portal", "34_baby_griffin_ride", "42_sky_market", "43_crystal_cave_dragon",
+            "37_mushroom_village", "44_castle_festival"],
+    featured=["40_dragon_flight", "42_sky_market", "43_crystal_cave_dragon"])
+PRODUCTS["anime_saga_45"].update(
+    hero="12_cherry_tree_confession",
+    others=["06_shared_umbrella", "26_guardian_transformation", "40_dragon_flight", "29_shadow_king", "42_sky_market",
+            "14_festival_date"],
+    featured=["12_cherry_tree_confession", "26_guardian_transformation", "40_dragon_flight"])
+CAR_SECTION = "Car Paint by Number"
+PRODUCTS["car_classics_22"] = dict(
+    name="Dream Garage", items=nums("cars", (1, 22)), price=599, section=CAR_SECTION,   # sorted by zone count
+    level_of=lambda i, r: "Beginner" if r < 150 else "Easy" if r < 300 else "Medium" if r < 550 else "Expert",
+    title="Car Paint by Number Book, 22 JDM, Muscle and Classic Cars, Easy to Expert Color by Number, Car Lover Gift, Procreate Printable",
+    blurb="A garage full of dream cars to paint: a split-window camper van on the beach, a 1950s Christmas pickup, a 1960s fastback, a midnight muscle car, neon JDM legends in the Tokyo rain, a JDM night car meet and 80s poster supercars under Miami neon. Four levels from beginner to expert, so you can start relaxed and work up to the detailed showpieces.",
+    details="Tiny details like headlights, taillights and chrome trim come already colored, so you only paint the numbered areas.",
+    tags=["car coloring book", "jdm car art", "muscle car gift", "classic car gift", "car lover gift",
+          "gift for him", "gift for dad", "stocking stuffer", "supercar coloring"],
+    hero="13_tokyo_rain_jdm",
+    others=["12_neon_jdm_coupe", "16_miami_night_supercar", "11_midnight_muscle_car", "17_neon_city_supercar",
+            "19_jdm_night_car_meet", "06_1960s_fastback_hill_street"],
+    featured=["12_neon_jdm_coupe", "13_tokyo_rain_jdm", "16_miami_night_supercar"])
+CAST_DIR = SRC / "anime_cast"
+CAST_BIOS = [("Hana", "café owner, cherry-blossom katana"), ("Ren", "barista, water shield"),
+             ("Kai", "delivery cyclist, flame gauntlets"), ("Sora", "florist, wind bow"),
+             ("Yuki", "illustrator, magic paintbrush"), ("Mochi", "café cat, giant spirit cat")]
+
+
+def cast_page(size):
+    """'Meet the cast' page with both character sheets and short bios, at the given (w, h)."""
+    from PIL import ImageDraw as D_
+    w, h = size
+    img = Image.new("RGB", size, (253, 246, 236))
+    d = D_.Draw(img)
+    portrait = h > w
+    t = font("georgiab", int(w * (0.055 if portrait else 0.04)))
+    title = "Meet the Sakura Lane Guardians"
+    d.text(((w - d.textlength(title, font=t)) / 2, h * 0.025), title, font=t, fill=PLUM)
+    sheets = [Image.open(CAST_DIR / f"character_sheet_{k}.png").convert("RGB") for k in ("casual", "guardian")]
+    if portrait:
+        sw = int(w * 0.44)
+        for i, s in enumerate(sheets):
+            s = s.resize((sw, round(sw * s.height / s.width)), Image.LANCZOS)
+            img.paste(s, (int(w * 0.04) + i * (sw + int(w * 0.04)), int(h * 0.1)))
+        y0, f = int(h * 0.1) + round(sw * sheets[0].height / sheets[0].width) + int(h * 0.05), font("segoeui", int(w * 0.04))
+        cols, x_left, col_w = 1, int(w * 0.1), 0
+    else:
+        sh_h = int(h * 0.62)
+        scaled = [s.resize((round(sh_h * s.width / s.height), sh_h), Image.LANCZOS) for s in sheets]
+        gap = int(w * 0.04)
+        x = (w - sum(s.width for s in scaled) - gap) // 2
+        for s in scaled:
+            img.paste(s, (x, int(h * 0.12)))
+            x += s.width + gap
+        y0, f = int(h * 0.77), font("segoeui", int(h * 0.03))
+        cols, x_left, col_w = 2, int(w * 0.06), int(w * 0.5)
+    for i, (nm, bio) in enumerate(CAST_BIOS):
+        r, c = divmod(i, cols)
+        x = x_left + c * col_w
+        y = y0 + r * int(f.size * 1.75)
+        d.text((x, y), nm, font=font("segoeuib", f.size), fill=CORAL)
+        d.text((x + d.textlength(nm + "  ", font=font("segoeuib", f.size)), y), bio, font=f, fill=INK)
+    return img
+
+
+NAME_FIX = {"santas": "Santa's", "and": "and", "of": "of", "in": "in", "on": "on", "with": "with", "for": "for",
+            "the": "the", "at": "at", "vs": "vs", "two": "Two", "jdm": "JDM", "suv": "SUV"}
 
 
 # ---------- designs ----------
@@ -187,7 +290,7 @@ class BookCollection(L.Collection):
 
 def ordered_dirs(p):
     dirs = [design_dir(f, n) for f, n in p["items"]]
-    return sorted(dirs, key=lambda d: stats(d)[0])
+    return dirs if p.get("keep_order") else sorted(dirs, key=lambda d: stats(d)[0])
 
 
 # ---------- delivery files ----------
@@ -214,6 +317,8 @@ def build_files(p, dirs, d):
 
     # 1) printable book: palette pages, A4 300 DPI indexed PNG streams
     pages = [CP.page_image(x / "PNG" / "Palette_Numbered.png") for x in dirs]
+    if p.get("cast"):                            # "Meet the cast" page in front, as an indexed A4 image
+        pages.insert(0, cast_page(CP.PX).quantize(colors=256, method=Image.Quantize.MEDIANCUT))
     sizes = [len(CP.png_parts(pg)[2]) + 2000 for pg in pages]
     parts = chunk(list(range(len(pages))), lambda i: sizes[i])
     for k, idx in enumerate(parts, 1):
@@ -319,7 +424,7 @@ def cover_book(col, p, out):
 def overview(col, p, out):
     img = background(15)
     n = col.count
-    cols = {10: 5, 20: 5, 30: 6, 60: 10}.get(n, 5)
+    cols = {10: 5, 15: 5, 20: 5, 30: 6, 45: 9, 60: 10}.get(n, 5)
     rows = -(-n // cols)
     gap = 26 if n <= 30 else 14
     label = n <= 20
@@ -362,21 +467,64 @@ import make_cover_bs as CB
 CB.THEMES.update({  # light top, light bottom, dark accent
     "christmas": ((252, 236, 232), (234, 200, 196), (150, 32, 44)),
     "rose": ((251, 240, 242), (234, 212, 222), (150, 70, 104)),
+    "anime": ((252, 236, 244), (226, 214, 240), (120, 60, 140)),
+    "garage": ((232, 238, 246), (196, 208, 226), (28, 44, 86)),
 })
 COVER_THEME = {"christmas_magic": "christmas", "winter_wonderland": "christmas", "hygge_christmas_winter": "christmas",
                "woodland_wildlife": "wild", "woodland_furry_friends": "wild", "cats_and_dogs": "cozy",
                "cottage_garden": "rose", "cozy_hideaways": "rose", "soft_cottagecore_dreams": "rose",
                "cozy_collection_60": "cozy", "mountains_nature": "teal", "seas_shores": "teal",
-               "villages_cities": "sunset", "around_the_world_30": "sunset"}
+               "villages_cities": "sunset", "around_the_world_30": "sunset",
+               "anime_love": "anime", "anime_battle": "anime", "anime_adventure": "anime", "anime_saga_45": "anime",
+               "car_classics_22": "garage"}
+
+
+def pick(col, stem):
+    """Book page number (1..N) of a design folder name."""
+    return 1 + [d.name for d in col.dirs].index(stem)
+
+
+def hero_of(col, p):
+    if p.get("hero"):
+        return pick(col, p["hero"])
+    ranked = sorted(col.stats, key=lambda i: col.stats[i][0])
+    return ranked[int(len(ranked) * 0.7)]
 
 
 def cover_bs(col, p, key, out):
     """Best-seller cover (same design as the 15-design sets): ribbon headline, hero iPad, fanned tablets."""
-    ranked = sorted(col.stats, key=lambda i: col.stats[i][0])
-    hero = ranked[int(len(ranked) * 0.7)]
-    rest = [n for n in ranked if n != hero]
-    others = [rest[round(k * (len(rest) - 1) / 5)] for k in range(6)]
-    return CB.make(col, hero, others, col.count, p["name"], list(col.stats), out, COVER_THEME.get(key, "cozy"))
+    hero = hero_of(col, p)
+    if p.get("others"):
+        others = [pick(col, s) for s in p["others"]]
+    else:
+        rest = [n for n in sorted(col.stats, key=lambda i: col.stats[i][0]) if n != hero]
+        others = [rest[round(k * (len(rest) - 1) / 5)] for k in range(6)]
+    if not p.get("cast"):
+        return CB.make(col, hero, others, col.count, p["name"], list(col.stats), out, COVER_THEME.get(key, "cozy"))
+    # Simple anime series: show more of the painted art, and sell the few colors + the original cast
+    lo, hi = min(s[1] for s in col.stats.values()), max(s[1] for s in col.stats.values())
+    cards = [(f"Only {lo}-{hi}", "colors per page", (255, 196, 30)),
+             ("Original cast", "6 recurring characters", (30, 186, 150)),
+             ("iPad + Print", "Procreate & paper", (70, 130, 230))]
+    orig = CB.straight_split
+    CB.straight_split = lambda c, n, sw, sh: split(c, n, sw, sh, painted=0.6)
+    try:
+        return CB.make(col, hero, others, col.count, p["name"], list(col.stats), out, COVER_THEME.get(key, "cozy"),
+                       cards=cards)
+    finally:
+        CB.straight_split = orig
+
+
+def split(col, n, sw, sh, painted=0.5):
+    """Numbered line art in the top-left corner, painted art over `painted` of the screen, one diagonal edge."""
+    import numpy as np
+    rect = col.rect(n)
+    line = cover_crop(col.style_img(n, "Dark_Numbered", rect), sw, sh).convert("RGB")
+    color = cover_crop(col.art(n), sw, sh).convert("RGB")
+    yy, xx = np.mgrid[0:sh, 0:sw].astype(np.float32)
+    s = (xx / sw + yy / sh) / 2                        # 0 at top-left, 1 at bottom-right
+    m = np.clip((s - (1 - painted)) * 400 + 0.5, 0, 1)
+    return Image.composite(color, line, Image.fromarray((m * 255).astype(np.uint8)))
 
 
 def build_photos(col, p, d, key=""):
@@ -385,7 +533,8 @@ def build_photos(col, p, d, key=""):
     d.mkdir(parents=True)
     ranked = sorted(col.stats, key=lambda i: col.stats[i][0])
     mid, hard = ranked[len(ranked) // 2], ranked[-1]
-    feat = [ranked[int(len(ranked) * f)] for f in (0.45, 0.75, 0.95)]
+    feat = ([pick(col, s) for s in p["featured"]] if p.get("featured")
+            else [ranked[int(len(ranked) * f)] for f in (0.45, 0.75, 0.95)])
     n = col.count
     included = [("PDF", CORAL, f"Printable book: {n} pages", "A4, palette on every page, easiest first"),
                 ("MAP", PLUM, "Color guide PDF", "Every page fully colored, check any number"),
@@ -418,6 +567,8 @@ def build_photos(col, p, d, key=""):
         "10_how_it_works.jpg": lambda o: L.howto_image(col, mid, o, steps=howto),
         "11_good_to_know.jpg": lambda o: L.terms_image(o, rows=terms),
     }
+    if p.get("cast"):
+        plan["02b_meet_the_cast.jpg"] = lambda o: L.save_jpg(cast_page((W, H)), o)
     for name, fn in plan.items():
         fn(d / name)
 
@@ -429,7 +580,8 @@ def listing_text(p, dirs, files):
     assert len(tags) == 13 and len(set(tags)) == 13 and all(len(t) <= 20 for t in tags), (p["name"], tags)
     assert len(p["title"]) <= 140, (p["name"], len(p["title"]))
     regions = [stats(x)[0] for x in dirs]
-    names = "\n".join(f"{i}. {pretty(x.name)} ({level(r)})" for i, (x, r) in enumerate(zip(dirs, regions), 1))
+    lv = p.get("level_of", lambda i, r: level(r))
+    names = "\n".join(f"{i}. {pretty(x.name)} ({lv(i, r)})" for i, (x, r) in enumerate(zip(dirs, regions), 1))
     file_lines = "\n".join(f"- {f.name.split('_', 1)[1].replace('_', ' ').rsplit('.', 1)[0]} ({f.suffix[1:].upper()})"
                            for f in files)
     kit = any("Procreate_Kit" in f.name for f in files)
@@ -443,7 +595,7 @@ def listing_text(p, dirs, files):
                    ".swatches palettes, palette sheets and hex codes")
     desc = f"""{p['blurb']}
 
-{len(dirs)} paint by number pages to print at home or paint on your iPad in Procreate. Pages go from easy to challenging (about {min(regions)} to {max(regions)} numbered zones), so it's relaxing for beginners and still fun for experienced painters. Small details like eyes and ornaments come already colored, so you only paint the numbered areas.
+{len(dirs)} paint by number pages to print at home or paint on your iPad in Procreate. Pages go from easy to challenging (about {min(regions)} to {max(regions)} numbered zones), so it's relaxing for beginners and still fun for experienced painters. {p.get('details', 'Small details like eyes and ornaments come already colored, so you only paint the numbered areas.')}
 
 WHAT YOU GET (INSTANT DOWNLOAD)
 {file_lines}
@@ -506,14 +658,21 @@ def upload(keys):
                 if f.name not in have:
                     e.request("POST", f"/shops/{sid}/listings/{lid}/files", form={"rank": rank, "name": f.name},
                               files={"file": f})
+            text = json.loads((d / "listing.json").read_text(encoding="utf-8"))
+            e.request("PATCH", f"/shops/{sid}/listings/{lid}", form={"description": text["description"]})
             print(f"checked {key} ({lid}): photos and files complete", flush=True)
             continue
         text = json.loads((d / "listing.json").read_text(encoding="utf-8"))
+        sec_title = PRODUCTS[key].get("section")
+        if sec_title and sec_title not in sections:
+            sections[sec_title] = e.request("POST", f"/shops/{sid}/sections", form={"title": sec_title})["shop_section_id"]
+        section_id = (sections[sec_title] if sec_title else
+                      sections.get(CHRISTMAS_SECTION, SECTION_PBN) if text["christmas"] else SECTION_PBN)
         listing = e.request("POST", f"/shops/{sid}/listings", retry=False, form={
             "quantity": 999, "title": text["title"], "description": text["description"], "price": text["price"],
             "who_made": "i_did", "when_made": "2020_2026", "taxonomy_id": 339, "type": "download",
             "is_supply": "false", "should_auto_renew": "true", "tags": ",".join(text["tags"]),
-            "shop_section_id": sections.get(CHRISTMAS_SECTION, SECTION_PBN) if text["christmas"] else SECTION_PBN,
+            "shop_section_id": section_id,
         })
         lid = listing["listing_id"]
         state[key] = lid
@@ -527,7 +686,8 @@ def upload(keys):
 
 
 MINIS = ["christmas_magic", "winter_wonderland", "woodland_wildlife", "cats_and_dogs", "cottage_garden",
-         "cozy_hideaways", "mountains_nature", "seas_shores", "villages_cities"]
+         "cozy_hideaways", "mountains_nature", "seas_shores", "villages_cities",
+         "anime_love", "anime_battle", "anime_adventure", "car_classics_22"]
 DRIVE = ROOT / "output" / "drive_zips"
 
 FULL_README = """YOUR PAINT BY NUMBER FULL PACK
@@ -720,8 +880,7 @@ def videos(keys):
         col = BookCollection(ordered_dirs(p), OUT / key / "_meta")
         L.NAMES.update(col.names)
         V.NAMES.update(col.names)
-        ranked = sorted(col.stats, key=lambda i: col.stats[i][0])
-        hero = ranked[int(len(ranked) * 0.7)]                      # same design as the cover's iPad
+        hero = hero_of(col, p)                                     # same design as the cover's iPad
         out = OUT / key / "video" / "paint_by_number_video.mp4"
         if not out.exists():
             V.build(col, hero, out.parent, pages=col.count, out_name=out.name)
