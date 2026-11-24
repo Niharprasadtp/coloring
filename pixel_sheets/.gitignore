@@ -1,0 +1,7 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Generated product files, listing assets and the Google "Make a copy" links (paid content, never publish)
+output/
