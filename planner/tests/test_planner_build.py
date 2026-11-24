@@ -57,7 +57,7 @@ def test_link_guard_rejects_small_or_overlapping(tmp_path):
 
 def test_batch_variants():
     assert len(batch_variants(Options(DEVICES["remarkable_pro"]))) == 8
-    # Kindle Scribe is grayscale-only, so only the B&W palette is produced.
+    # Grayscale-only screens (Kindle Scribe, reMarkable 2, Supernote) get only B&W.
     assert len(batch_variants(Options(DEVICES["kindle_scribe"]))) == 4
 
 

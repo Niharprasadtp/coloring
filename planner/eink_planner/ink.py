@@ -15,6 +15,11 @@ BOLD = "Helvetica-Bold"
 LIGHT = "Helvetica"  # standard-14 has no light weight; color does the work
 
 
+def _ck(color):
+    """Hashable cache key for a ReportLab color (or None)."""
+    return None if color is None else tuple(color.rgba())
+
+
 class LayoutError(RuntimeError):
     """A tap target is too small, overlaps another, or points nowhere."""
 
@@ -28,6 +33,24 @@ class Ink:
         self.page_key = ""
         self.targets: list[tuple[Rect, str]] = []
         self.link_count = 0
+        self._forms: dict[tuple, str] = {}
+
+    def form(self, key: tuple, draw) -> None:
+        """Draw through a cached PDF form XObject.
+
+        Content that repeats on hundreds of pages (nav chrome, grids, ruled lines) is
+        written to the file once and referenced with a single `Do` operator, which
+        keeps planners small and fast to page through on older tablets. `draw` must
+        not create links: annotations belong to pages, not forms.
+        """
+        name = self._forms.get(key)
+        if name is None:
+            name = f"F{len(self._forms)}"
+            self.c.beginForm(name)
+            draw()
+            self.c.endForm()
+            self._forms[key] = name
+        self.c.doForm(name)
 
     def start_page(self, key: str) -> None:
         self.page_key = key
@@ -160,6 +183,10 @@ class Ink:
              major: int = 0) -> None:
         """Fine grid, centered in r so partial cells are split evenly."""
         step = step or self.m.grid
+        self.form(("grid", r.x, r.y, r.w, r.h, step, _ck(color), width, major),
+                  lambda: self._grid(r, step, color, width, major))
+
+    def _grid(self, r: Rect, step: float, color, width, major: int) -> None:
         x0, nx = self._snap(r.x, r.w, step)
         y0, ny = self._snap(r.y, r.h, step)
         c = self.c
@@ -186,6 +213,10 @@ class Ink:
     def dots(self, r: Rect, step: float | None = None, color=None, size: float | None = None,
              iso: bool = False) -> None:
         step = step or self.m.dot
+        self.form(("dots", r.x, r.y, r.w, r.h, step, _ck(color), size, iso),
+                  lambda: self._dots(r, step, color, size, iso))
+
+    def _dots(self, r: Rect, step: float, color, size, iso: bool) -> None:
         dy = step * (math.sqrt(3) / 2 if iso else 1)
         x0, nx = self._snap(r.x, r.w, step)
         y0, ny = self._snap(r.y, r.h, dy)
@@ -218,21 +249,28 @@ class Ink:
             y -= step
         if not ys:
             return ys
-        c = self.c
-        p = c.beginPath()
-        for y in ys:
-            p.moveTo(r.x, y)
-            p.lineTo(r.right, y)
-        c.setStrokeColor(color if color is not None else self.t.rule)
-        c.setLineWidth(width if width is not None else self.m.lw_rule)
-        c.setDash(dash or [])
-        c.drawPath(p, stroke=1, fill=0)
-        c.setDash([])
+
+        def draw():
+            c = self.c
+            p = c.beginPath()
+            for y in ys:
+                p.moveTo(r.x, y)
+                p.lineTo(r.right, y)
+            c.setStrokeColor(color if color is not None else self.t.rule)
+            c.setLineWidth(width if width is not None else self.m.lw_rule)
+            c.setDash(dash or [])
+            c.drawPath(p, stroke=1, fill=0)
+            c.setDash([])
+
+        self.form(("hlines", r.x, r.right, tuple(ys), _ck(color), width,
+                   tuple(dash) if dash else None), draw)
         return ys
 
     # --- links -------------------------------------------------------------
     def link(self, r: Rect, key: str) -> None:
         """Internal hyperlink. Enforces minimum tap size and no overlap on the page."""
+        if self.c._formData:
+            raise LayoutError(f"page {self.page_key!r}: link drawn inside a form")
         if key not in self.keys:
             raise LayoutError(f"page {self.page_key!r}: link to unknown page {key!r}")
         floor = self.m.tap_min - 0.01

@@ -33,7 +33,10 @@ class Theme:
         return self.tint[quarter]
 
 
-_SAGE, _SLATE, _TERRA, _WARM = (HexColor(c) for c in ("#7A9A80", "#5D7086", "#B5715A", "#958E83"))
+# Color E-Ink panels (Gallery 3, Kaleido 3) show colors noticeably paler than a
+# monitor does, so the accents carry a little more saturation than they would on
+# paper; on the device they read as soft sage, slate, terracotta and sand.
+_SAGE, _SLATE, _TERRA, _WARM = (HexColor(c) for c in ("#6A9A73", "#4E6C8E", "#BC6548", "#9C8A72"))
 
 EINK_COLOR = Theme(
     name="eink_color",
@@ -50,7 +53,7 @@ EINK_COLOR = Theme(
     accent=_SAGE,
     weekend=_TERRA,
     quarter=(None, _SAGE, _SLATE, _TERRA, _WARM),
-    tint=(None, HexColor("#E6EDE7"), HexColor("#E2E7EE"), HexColor("#F3E5DE"), HexColor("#EEEBE6")),
+    tint=(None, HexColor("#DEEBE0"), HexColor("#DAE3EE"), HexColor("#F4DED4"), HexColor("#EDE6DB")),
 )
 
 BW = Theme(

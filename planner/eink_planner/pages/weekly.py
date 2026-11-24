@@ -8,7 +8,7 @@ from datetime import date
 from .. import calendar_model as cal
 from ..chrome import month_key
 from ..geometry import Rect
-from ..ink import BOLD, REGULAR
+from ..ink import BOLD
 from ..widgets import (checklist, day_key, habit_grid, page_header, section, week_habits,
                        week_key)
 
@@ -54,7 +54,10 @@ def week_page(P, spec) -> None:
                    allow_split=False)
     elif not m.compact:
         band, grid_r = body.take_bottom(m.mm(34), sp * 1.5)
-        slots = [c for row in grid_r.grid(2, 4, sp * 1.5, sp) for c in row]
+        # Fill down the columns (Mon-Thu | Fri-Sun + priorities) so the
+        # weekend stays together instead of Sunday sitting alone on the last row.
+        rows = grid_r.grid(2, 4, sp * 1.5, sp)
+        slots = [row[c] for c in range(2) for row in rows]
         for i, (d, slot) in enumerate(zip(days, slots)):
             _day_block(P, slot, d, first=i == 0)
         checklist(ink, slots[7], "Weekly priorities")

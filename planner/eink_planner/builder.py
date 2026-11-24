@@ -56,7 +56,7 @@ class Planner:
     # --- plan --------------------------------------------------------------
     def _plan(self) -> list[PageSpec]:
         from .pages import calendar_pages as cp
-        from .pages import daily, templates, weekly, workspace
+        from .pages import daily, guide, templates, weekly, workspace
 
         specs: list[PageSpec] = []
 
@@ -65,6 +65,7 @@ class Planner:
 
         add("cover", cp.cover, [("Cover", 0)])
         add("home", cp.home, [("Home", 0)], "home")
+        add("guide", guide.usage_page, [("How to Use", 0)], "home")
 
         chunks = cp.year_chunks(self)
         for i, months in enumerate(chunks):

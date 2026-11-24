@@ -33,8 +33,9 @@ def tile(ink, r: Rect, title: str, sub: str = "", key: str | None = None, *, fil
         ink.link(r, key)
 
 
-def _fit(P, w: float, h: float, mw: float, mh: float) -> tuple[int, int]:
-    sp = P.m.space
+def _fit(P, w: float, h: float, mw: float, mh: float, sp: float | None = None) -> tuple[int, int]:
+    """How many min-size blocks fit, using the same spacing the page will draw with."""
+    sp = P.m.space if sp is None else sp
     return max(int((w + sp) // (mw + sp)), 1), max(int((h + sp) // (mh + sp)), 1)
 
 
@@ -108,9 +109,10 @@ def home(P, spec) -> None:
 
     def overview(r):
         row, r = labelled(r, "Overview", th, m.space * 1.5)
-        a, b = row.cols(2, g)
+        a, b, c = row.cols([0.37, 0.37, 0.26], g)
         tile(ink, a, "Year at a Glance", "Every month and day", "year-1")
         tile(ink, b, "December 2026", "Lead-in month", month_key(2026, 12), stripe=t.q(4))
+        tile(ink, c, "How to use", "Start here", "guide")
         return r
 
     def quarters(r):
@@ -143,24 +145,55 @@ def home(P, spec) -> None:
 
 
 def _week_index(P, r: Rect) -> None:
-    """Grid of every weekly page, drawn only when it fits at full tap size."""
+    """Grid of every weekly page, drawn only when it fits at full tap size.
+
+    Dec 2026 and Dec 2027 both have weeks numbered 49-52, so the two years must be
+    told apart: as two labelled groups when there is room, otherwise as one grid
+    whose 2026 cells carry a small '26 under the number.
+    """
     ink, m, t = P.ink, P.m, P.t
     cols = int((r.w + m.gap) // (m.tap + m.gap))
     if cols < 1:
         return
-    rows = math.ceil(len(P.weeks) / cols)
     lab_h = m.fs_label * 0.7 + m.mm(1.6)
-    if r.h < lab_h + rows * (m.tap_min + m.gap):
-        return
-    r = r.pad(top=ink.label(r.x, r.top, "Weeks"))
-    ch = min((r.h - (rows - 1) * m.gap) / rows, m.tap)
     cw = (r.w - (cols - 1) * m.gap) / cols
-    for i, start in enumerate(P.weeks):
-        rr, cc = divmod(i, cols)
-        cell = Rect(r.x + cc * (cw + m.gap), r.top - (rr + 1) * ch - rr * m.gap, cw, ch)
-        ink.box(cell, fill=t.tab, radius=m.radius)
-        ink.text_in(cell, f"{cal.iso_week(start, P.fw)[1]:02d}", m.fs_small, BOLD, t.tab_text)
-        ink.link(cell, week_key(start))
+    lead = [w for w in P.weeks if w.year == 2026]
+    main = [w for w in P.weeks if w.year != 2026]
+
+    def need(groups):
+        rows = sum(math.ceil(len(g) / cols) for g in groups)
+        return rows, len(groups) * lab_h + rows * (m.tap_min + m.gap) + m.space * (len(groups) - 1)
+
+    def cells(top, weeks, ch, tagged):
+        for i, start in enumerate(weeks):
+            rr, cc = divmod(i, cols)
+            cell = Rect(r.x + cc * (cw + m.gap), top - (rr + 1) * ch - rr * m.gap, cw, ch)
+            ink.box(cell, fill=t.tab, radius=m.radius)
+            label = f"W{cal.iso_week(start, P.fw)[1]:02d}"
+            if tagged and start.year == 2026:
+                ink.text(cell.cx, cell.cy + m.mm(0.3), label, m.fs_small, BOLD, t.tab_text, "center")
+                ink.text(cell.cx, cell.cy - m.mm(0.3) - m.fs_small * 0.8, "'26", m.fs_small * 0.85,
+                         REGULAR, t.muted, "center")
+            else:
+                ink.text_in(cell, label, m.fs_small, BOLD, t.tab_text)
+            ink.link(cell, week_key(start))
+        n = math.ceil(len(weeks) / cols)
+        return top - n * ch - (n - 1) * m.gap
+
+    rows, h = need([lead, main])
+    if r.h >= h:
+        ch = min((r.h - 2 * lab_h - m.space - (rows - 2) * m.gap) / rows, m.tap)
+        top = r.top
+        for label, weeks in (("Weeks · Dec 2026", lead), ("Weeks · 2027", main)):
+            top -= ink.label(r.x, top, label)
+            top = cells(top, weeks, ch, False) - m.space
+        return
+    rows, h = need([P.weeks])
+    ch = min((r.h - lab_h - (rows - 1) * m.gap) / rows, m.tap)
+    if r.h < h or ch < m.fs_small * 2.2:   # the '26 tag needs room for two lines
+        return
+    top = r.top - ink.label(r.x, r.top, "Weeks")
+    cells(top, P.weeks, ch, True)
 
 
 # --- year at a glance -----------------------------------------------------------------
@@ -201,7 +234,7 @@ def year_page(P, spec) -> None:
 def quarter_plan(P, q: int) -> list[tuple[str, list]]:
     mw, mh = _block_min(P, True)
     body = P.body
-    cols, rows = _fit(P, body.w, body.h, mw, mh)
+    cols, rows = _fit(P, body.w, body.h, mw, mh, P.m.space * 1.5)
     months = cal.quarter_months(q)
     if cols >= 3 and body.h >= mh + P.m.mm(28):
         return [("row", months)]
@@ -236,8 +269,8 @@ def quarter_page(P, spec) -> None:
         lines_box(ink, cells[3], "Milestones & key dates")
     else:
         mw, mh = _block_min(P, True)
-        cols, rows = _fit(P, body.w, body.h, mw, mh)
-        cells = [c for row in body.grid(cols, rows, m.space, m.space) for c in row]
+        cols, rows = _fit(P, body.w, body.h, mw, mh, m.space * 1.5)
+        cells = [c for row in body.grid(cols, rows, m.space * 1.5, m.space * 1.5) for c in row]
         for (y, mo), cell in zip(months, cells):
             month_block(ink, cell, y, mo, P.fw, week_col=True, week_keys=week_keys, quarter_color=color)
 

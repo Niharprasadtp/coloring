@@ -19,17 +19,37 @@ class Device:
     width: int   # portrait, px
     height: int  # portrait, px
     ppi: int
+    family: str  # "remarkable" | "kindle" | "supernote": install steps and quirks
     compact: bool = False
     grayscale_only: bool = False
+    # Height kept free at the top of the month rail. reMarkable draws its round
+    # toolbar button in the top corner on the side away from the writing hand,
+    # which is the rail's side, so a tab there would sit under the button.
+    toolbar_corner_mm: float = 0.0
 
+
+_RM_CORNER = 14.0
 
 DEVICES: dict[str, Device] = {
     "remarkable_pro": Device("remarkable_pro", "reMarkable Paper Pro", "reMarkable-Paper-Pro",
-                             1620, 2160, 229),
+                             1620, 2160, 229, "remarkable", toolbar_corner_mm=_RM_CORNER),
     "remarkable_move": Device("remarkable_move", "reMarkable Paper Pro Move", "reMarkable-Move",
-                              954, 1696, 264, compact=True),
-    "kindle_scribe": Device("kindle_scribe", "Kindle Scribe", "Kindle-Scribe",
-                            1860, 2480, 300, grayscale_only=True),
+                              954, 1696, 264, "remarkable", compact=True,
+                              toolbar_corner_mm=_RM_CORNER),
+    "remarkable_2": Device("remarkable_2", "reMarkable 2", "reMarkable-2",
+                           1404, 1872, 226, "remarkable", grayscale_only=True,
+                           toolbar_corner_mm=_RM_CORNER),
+    "kindle_scribe": Device("kindle_scribe", "Kindle Scribe (11-inch, 2025)", "Kindle-Scribe-11in",
+                            1980, 2640, 300, "kindle", grayscale_only=True),
+    "kindle_scribe_colorsoft": Device("kindle_scribe_colorsoft", "Kindle Scribe Colorsoft",
+                                      "Kindle-Scribe-Colorsoft", 1980, 2640, 300, "kindle"),
+    "kindle_scribe_10": Device("kindle_scribe_10", "Kindle Scribe (10.2-inch, 2022/2024)",
+                               "Kindle-Scribe-10in", 1860, 2480, 300, "kindle",
+                               grayscale_only=True),
+    "supernote_manta": Device("supernote_manta", "Supernote Manta", "Supernote-Manta",
+                              1920, 2560, 300, "supernote", grayscale_only=True),
+    "supernote_nomad": Device("supernote_nomad", "Supernote Nomad", "Supernote-Nomad",
+                              1404, 1872, 300, "supernote", compact=True, grayscale_only=True),
 }
 
 ORIENTATIONS = ("portrait", "landscape")
@@ -71,7 +91,7 @@ class Options:
 
     @property
     def effective_color_mode(self) -> str:
-        """Kindle Scribe is grayscale-only, so it always gets the high-contrast palette."""
+        """Grayscale-only screens always get the high-contrast palette."""
         return "bw" if self.device.grayscale_only else self.color_mode
 
     @property
@@ -108,7 +128,10 @@ class Metrics:
         self.tap_min = self.mm(self.tap_min_mm)
         self.tap = self.mm(8.0 if c else 9.5)
         self.gap = self.mm(1.0 if c else 1.5)
-        self.edge = self.mm(1.5 if c else 2.5)       # page edge to nav
+        # Taps right at the screen edge are unreliable on some tablets, so the nav
+        # keeps a few millimetres clear of it.
+        self.edge = self.mm(2.5 if c else 3.0)       # page edge to nav
+        self.toolbar_corner = self.mm(d.toolbar_corner_mm)
         self.gutter = self.mm(2.5 if c else 4.0)     # nav to content
         self.margin = self.mm(3.0 if c else 5.0)     # content to free page edges
         self.space = self.mm(2.5 if c else 4.0)      # between blocks
