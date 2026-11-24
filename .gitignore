@@ -46,6 +46,7 @@ Thumbs.db
 input/*
 !input/.gitkeep
 output/
+!planner/output/
 
 # Leftover build output from the main branch (backend/frontend live there)
 backend/

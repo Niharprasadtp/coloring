@@ -1,4 +1,6 @@
-# Generated planners, previews and Etsy listing images
-output/
+# Etsy download sets (START-HERE.pdf + zips) and listing images are committed so
+# they can be taken to another machine. Unzipped copies and scratch builds are not.
+output/*
+!output/Etsy_*/
+output/Etsy_*/*/
 previews/
-etsy/
