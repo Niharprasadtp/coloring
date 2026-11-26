@@ -1,0 +1,4 @@
+# Paid art and customer books (children's names) must never reach the public repo.
+art_src/
+art/
+output/

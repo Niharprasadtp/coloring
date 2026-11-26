@@ -1,0 +1,2 @@
+cd coloring/kids_car_book
+../.venv/Scripts/python.exe make_book.py "Name" --preview

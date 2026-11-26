@@ -99,7 +99,7 @@ def shadow(canvas: Image.Image, layer: Image.Image, xy, blur=24, offset=(0, 22),
 
 
 def sheets_window(content: Image.Image, doc_title: str, active_tab: int = 0, n_tabs: int = 10,
-                  aspect: float = 1.6) -> Image.Image:
+                  aspect: float = 1.6, labels: list | None = None) -> Image.Image:
     """Wrap a sheet render in a simple Google-Sheets-like window (top bar + tabs), widened to aspect."""
     s = content.width / 1100
     bar, tabs = int(78 * s), int(40 * s)
@@ -125,8 +125,8 @@ def sheets_window(content: Image.Image, doc_title: str, active_tab: int = 0, n_t
     ty = bar + content.height
     d.rectangle([0, ty, W, H], fill=(241, 243, 244))
     x = int(16 * s)
-    for k in range(n_tabs):
-        label = f"Picture {k + 1}"
+    labels = labels or [f"Picture {k + 1}" for k in range(n_tabs)]
+    for k, label in enumerate(labels):
         tw = d.textlength(label, font=font("sb", int(13 * s))) + int(24 * s)
         if x + tw > W:
             break
